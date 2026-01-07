@@ -190,11 +190,36 @@ fn calculate(tokens: &mut Vec<Token>) -> f64 {
                 }
 
                 // Manage other
+                
+                // Cannot have an operand as first or last token
+                if  i == 0 || i == tokens.len() - 1 {
+                    continue;
+                }
+
+                // Parse values first
+                let a: f64 = tokens[i - 1].value.parse::<f64>().expect("ERROR: Could not parse f64");
+                let b: f64 = tokens[i + 1].value.parse::<f64>().expect("ERROR: Could not parse f64");
+
+                // Match operation
+                match token.ttype {
+                    TokenType::Addition => swap_expression(tokens, i - 1, i + 1, op_add(a, b)),
+                    TokenType::Subtract => swap_expression(tokens, i - 1, i + 1, op_sub(a, b)),
+                    TokenType::Multiply => swap_expression(tokens, i - 1, i + 1, op_mul(a, b)),
+                    TokenType::Division => swap_expression(tokens, i - 1, i + 1, op_div(a, b)),
+                    TokenType::Exponent => swap_expression(tokens, i - 1, i + 1, op_exp(a, b)),
+                    _ => println!("Unknown token type: {:?}", token.ttype),
+                }
             }
         }
     }
 
-    return 1.0;
+    match tokens[0].value.parse::<f64>() {
+        Ok(number) => number,
+        Err(_) => {
+            println!("ERROR: Could not parse f64");
+            0.
+        }
+    }
 }
 
 fn calculate_brackets(tokens: &mut Vec<Token>, begin: usize) {
@@ -216,9 +241,14 @@ fn calculate_brackets(tokens: &mut Vec<Token>, begin: usize) {
     let mut sub_vec: Vec<Token> = tokens[begin+1..end].to_vec();
     let sub_val = calculate(&mut sub_vec);
 
+    // Calculate items between these indexes
+    swap_expression(tokens, begin, end, sub_val);
+}
+
+fn swap_expression(tokens: &mut Vec<Token>, begin: usize, end: usize, value: f64) {
     // Remove items between begin and end in tokens and swap with final value
     tokens.drain(begin..=end);
-    tokens.insert(begin,Token { value: (sub_val.to_string()), ttype: (TokenType::Number), prio: (TokenPrio::NONE) });
+    tokens.insert(begin, Token { value: (value.to_string()), ttype: (TokenType::Number), prio: (TokenPrio::NONE) });
 }
 
 fn op_add(a: f64, b: f64) -> f64 {
@@ -227,10 +257,6 @@ fn op_add(a: f64, b: f64) -> f64 {
 
 fn op_sub(a: f64, b: f64) -> f64 {
     return a - b;
-}
-
-fn op_sub_bug(a: f64, b: f64) -> f64 {
-    return a + b;
 }
 
 fn op_mul(a: f64, b: f64) -> f64 {
@@ -445,22 +471,6 @@ mod tests_unit {
             assert_eq!(expected, actual);
         }
     }
-    
-    // Currently commented out to allow for proper test results
-    mod bug {
-        // use super::*;
-        
-        // #[test]
-        // fn bug_2_and_1_equal_1() {
-        //     let expected = 1.0;
-    
-        //     let a = 2.0;
-        //     let b = 1.0;
-        //     let actual = op_add(a, b);
-    
-        //     assert_eq!(expected, actual);
-        // }
-    }
 
     mod format_tokens {
         use super::*;
@@ -519,7 +529,7 @@ mod tests_unit {
         fn format_long() {
             let expected = "-1 + 2 * ( -3 - ( -5 ) ) ^ ( 4 )";
 
-            let input = String::from("       -1   +  2*(-   3 -  (-5))^(     4)");
+            let input = String::from("       -1   +  2*(-   3 -  (-5))^(     4)  ");
             let actual = format_tokens(&input);
 
             assert_eq!(expected, actual);
