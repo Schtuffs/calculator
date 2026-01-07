@@ -36,10 +36,10 @@ fn main() {
 
     // Token parsing
     let formatted = format_tokens(&user_input);
-    let mut tokens = parse_tokens(&formatted);
+    let tokens = parse_tokens(&formatted);
 
     // BEDMAS
-    let value = calculate(&mut tokens);
+    let value = calculate(tokens);
 
     // Output
     println!("{formatted} = {value}");
@@ -145,7 +145,9 @@ fn parse_tokens(input: &String) -> Vec<Token> {
     return tokens;
 }
 
-fn calculate(tokens: &mut Vec<Token>) -> f64 {
+fn calculate(tokens: Vec<Token>) -> f64 {
+    let mut tokens = tokens;
+
     // Loop through tokens based on prio
     for cur_prio in (0..=TokenPrio::MAX).rev() {
         for i in 0..tokens.len() {
@@ -156,15 +158,15 @@ fn calculate(tokens: &mut Vec<Token>) -> f64 {
             let token = &tokens[i];
             if cur_prio == token.prio {
                 // Manage brackets
-                if  token.ttype == TokenType::ParenOpen {
-                    calculate_brackets(tokens, i);
+                if token.ttype == TokenType::ParenOpen {
+                    calculate_brackets(&mut tokens, i);
                     continue;
                 }
 
                 // Manage other
                 
                 // Cannot have an operand as first or last token
-                if  i == 0 || i == tokens.len() - 1 {
+                if i == 0 || i == tokens.len() - 1 {
                     continue;
                 }
 
@@ -174,11 +176,11 @@ fn calculate(tokens: &mut Vec<Token>) -> f64 {
 
                 // Match operation
                 match token.ttype {
-                    TokenType::Addition => swap_expression(tokens, i - 1, i + 1, op_add(a, b)),
-                    TokenType::Subtract => swap_expression(tokens, i - 1, i + 1, op_sub(a, b)),
-                    TokenType::Multiply => swap_expression(tokens, i - 1, i + 1, op_mul(a, b)),
-                    TokenType::Division => swap_expression(tokens, i - 1, i + 1, op_div(a, b)),
-                    TokenType::Exponent => swap_expression(tokens, i - 1, i + 1, op_exp(a, b)),
+                    TokenType::Addition => swap_expression(&mut tokens, i - 1, i + 1, op_add(a, b)),
+                    TokenType::Subtract => swap_expression(&mut tokens, i - 1, i + 1, op_sub(a, b)),
+                    TokenType::Multiply => swap_expression(&mut tokens, i - 1, i + 1, op_mul(a, b)),
+                    TokenType::Division => swap_expression(&mut tokens, i - 1, i + 1, op_div(a, b)),
+                    TokenType::Exponent => swap_expression(&mut tokens, i - 1, i + 1, op_exp(a, b)),
                     _ => println!("Unknown token type: {:?}", token.ttype),
                 }
             }
@@ -210,8 +212,8 @@ fn calculate_brackets(tokens: &mut Vec<Token>, begin: usize) {
     }
     
     // Calculate items between these indexes
-    let mut sub_vec: Vec<Token> = tokens[begin+1..end].to_vec();
-    let sub_val = calculate(&mut sub_vec);
+    let sub_vec: Vec<Token> = tokens[begin+1..end].to_vec();
+    let sub_val = calculate(sub_vec);
 
     // Calculate items between these indexes
     swap_expression(tokens, begin, end, sub_val);
@@ -498,7 +500,7 @@ mod tests_unit {
         }
 
         #[test]
-        fn format_long() {
+        fn format_many() {
             let expected = "-1 + 2 * ( -3 - ( -5 ) ) ^ ( 4 )";
 
             let input = String::from("       -1   +  2*(-   3 -  (-5))^(     4)  ");
@@ -563,7 +565,7 @@ mod tests_unit {
         }
         
         #[test]
-        fn format_exponents() {
+        fn parse_exponents() {
             let expected = vec![
                 Token { value: (String::from("2")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
                 Token { value: (String::from("^")),     ttype: (TokenType::Exponent),   prio: (TokenPrio::EXP)  },
@@ -617,14 +619,142 @@ mod tests_unit {
                 Token { value: (String::from("4")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
                 Token { value: (String::from(")")),     ttype: (TokenType::ParenClose), prio: (TokenPrio::PAR)  },
             ];
-            
+                
             let input = String::from("-1 + 2 * ( -3 - ( -5 ) ) ^ ( 4 )");
             let actual = parse_tokens(&input);
-
+            
             assert_eq!(expected.len(), actual.len());
             for i in 0..expected.len() {
                 assert_eq!(&expected[i], &actual[i]);
             }
+        }
+    }
+    
+    mod calculate {
+        use super::*;
+        
+        #[test]
+        fn calc_1_equal_1() {
+            let expected: f64 = 1.;
+
+            let input = vec![
+                Token { value: (String::from("1")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                ];
+            let actual = calculate(input);
+            
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_15_plus_19_equal_34() {
+            let expected: f64 = 34.;
+
+            let input = vec![
+                Token { value: (String::from("15")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("+")),     ttype: (TokenType::Addition),   prio: (TokenPrio::ADD)  },
+                Token { value: (String::from("19")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+            ];
+            let actual = calculate(input);
+    
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_20_minus_12_equal_8() {
+            let expected: f64 = 8.;
+
+            let input = vec![
+                Token { value: (String::from("20")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("-")),     ttype: (TokenType::Subtract),   prio: (TokenPrio::SUB)  },
+                Token { value: (String::from("12")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+            ];
+            let actual = calculate(input);
+            
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_3_times_4_equal_12() {
+            let expected: f64 = 12.;
+
+            let input = vec![
+                Token { value: (String::from("3")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("*")),     ttype: (TokenType::Multiply),   prio: (TokenPrio::MUL)  },
+                Token { value: (String::from("4")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+            ];
+            let actual = calculate(input);
+            
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_6_divide_2_equal_3() {
+            let expected: f64 = 3.;
+
+            let input = vec![
+                Token { value: (String::from("6")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("/")),     ttype: (TokenType::Division),   prio: (TokenPrio::DIV)  },
+                Token { value: (String::from("2")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+            ];
+            let actual = calculate(input);
+            
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_2_exp_3_equal_8() {
+            let expected: f64 = 8.;
+
+            let input = vec![
+                Token { value: (String::from("2")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("^")),     ttype: (TokenType::Exponent),   prio: (TokenPrio::EXP)  },
+                Token { value: (String::from("3")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+            ];
+            let actual = calculate(input);
+            
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_opar_negative_3_plus_5_equal_2() {
+            let expected: f64 = 2.;
+
+            let input = vec![
+                Token { value: (String::from("(")),     ttype: (TokenType::ParenOpen),  prio: (TokenPrio::PAR)  },
+                Token { value: (String::from("-3")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("+")),     ttype: (TokenType::Addition),   prio: (TokenPrio::ADD)  },
+                Token { value: (String::from("5")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from(")")),     ttype: (TokenType::ParenClose), prio: (TokenPrio::PAR)  },
+            ];
+            let actual = calculate(input);
+                
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn calc_many_equal_31() {
+            let expected: f64 = 31.;
+
+            let input = vec![
+                Token { value: (String::from("-1")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("+")),     ttype: (TokenType::Addition),   prio: (TokenPrio::ADD)  },
+                Token { value: (String::from("2")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("*")),     ttype: (TokenType::Multiply),   prio: (TokenPrio::MUL)  },
+                Token { value: (String::from("(")),     ttype: (TokenType::ParenOpen),  prio: (TokenPrio::PAR)  },
+                Token { value: (String::from("-3")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from("-")),     ttype: (TokenType::Subtract),   prio: (TokenPrio::SUB)  },
+                Token { value: (String::from("(")),     ttype: (TokenType::ParenOpen),  prio: (TokenPrio::PAR)  },
+                Token { value: (String::from("-5")),    ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from(")")),     ttype: (TokenType::ParenClose), prio: (TokenPrio::PAR)  },
+                Token { value: (String::from(")")),     ttype: (TokenType::ParenClose), prio: (TokenPrio::PAR)  },
+                Token { value: (String::from("^")),     ttype: (TokenType::Exponent),   prio: (TokenPrio::EXP)  },
+                Token { value: (String::from("(")),     ttype: (TokenType::ParenOpen),  prio: (TokenPrio::PAR)  },
+                Token { value: (String::from("4")),     ttype: (TokenType::Number),     prio: (TokenPrio::NONE) },
+                Token { value: (String::from(")")),     ttype: (TokenType::ParenClose), prio: (TokenPrio::PAR)  },
+            ];
+            let actual = calculate(input);
+            
+            assert_eq!(expected, actual);
         }
     }
 }
