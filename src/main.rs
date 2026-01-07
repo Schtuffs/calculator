@@ -3,6 +3,7 @@
  *  op_add(a: f64, b: f64) -> f64;
  *  op_sub(a: f64, b: f64) -> f64;
  *  op_mul(a: f64, b: f64) -> f64;
+ *  op_exp(a: f64, b: f64) -> f64;
  *  op_div(a: f64, b: f64) -> f64;
  *  
  *  Input:
@@ -15,7 +16,7 @@
  *  4. Output answer
  */
 
-use std::{io::{self, Write}};
+use std::io::{self, Write};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum TokenType {
@@ -63,13 +64,13 @@ fn main() {
 
     // Token parsing
     let formatted = format_tokens(&user_input);
-    let tokens = parse_tokens(&formatted);
+    let mut tokens = parse_tokens(&formatted);
 
     // BEDMAS
-    let value = calculate(&tokens);
+    let value = calculate(&mut tokens);
 
     // Output
-    print!("{formatted} = {value}")
+    println!("{formatted} = {value}");
 }
 
 fn format_tokens(input: &String) -> String {
@@ -172,8 +173,52 @@ fn parse_tokens(input: &String) -> Vec<Token> {
     return tokens;
 }
 
-fn calculate(tokens: &[Token]) -> f64 {
+fn calculate(tokens: &mut Vec<Token>) -> f64 {
+    // Loop through tokens based on prio
+    for cur_prio in (0..=TokenPrio::MAX).rev() {
+        for i in 0..tokens.len() {
+            if i >= tokens.len() {
+                break;
+            }
+
+            let token = &tokens[i];
+            if cur_prio == token.token_prio {
+                // Manage brackets
+                if  token.token_type == TokenType::ParenOpen {
+                    calculate_brackets(tokens, i);
+                    continue;
+                }
+
+                // Manage other
+            }
+        }
+    }
+
     return 1.0;
+}
+
+fn calculate_brackets(tokens: &mut Vec<Token>, begin: usize) {
+    // Find end of bracket position
+    let mut end = tokens.len();
+    for i in begin + 1..tokens.len() {
+        let token = &tokens[i];
+        if token.token_type == TokenType::ParenOpen {
+            // Recursive call to handle sub parentheses
+            calculate_brackets(tokens, i);
+        }
+        else if token.token_type == TokenType::ParenClose {
+            end = i;
+            break;
+        }
+    }
+    
+    // Calculate items between these indexes
+    let mut sub_vec: Vec<Token> = tokens[begin+1..end].to_vec();
+    let sub_val = calculate(&mut sub_vec);
+
+    // Remove items between begin and end in tokens and swap with final value
+    tokens.drain(begin..=end);
+    tokens.insert(begin,Token { token_value: (sub_val.to_string()), token_type: (TokenType::Number), token_prio: (TokenPrio::NONE) });
 }
 
 fn op_add(a: f64, b: f64) -> f64 {
@@ -190,6 +235,10 @@ fn op_sub_bug(a: f64, b: f64) -> f64 {
 
 fn op_mul(a: f64, b: f64) -> f64 {
     return a * b;
+}
+
+fn op_exp(a: f64, b: f64) -> f64 {
+    a.powf(b)
 }
 
 fn op_div(a: f64, b: f64) -> f64 {
@@ -306,6 +355,43 @@ mod tests_unit {
             let a = 0.;
             let b = 9.;
             let actual = op_mul(a, b);
+    
+            assert_eq!(expected, actual);
+        }
+    }
+    
+    mod exp {
+        use super::*;
+
+        #[test]
+        fn exp_2_and_2_equal_4() {
+            let expected = 4.0;
+    
+            let a = 2.0;
+            let b = 2.0;
+            let actual = op_exp(a, b);
+    
+            assert_eq!(expected, actual);
+        }
+
+        #[test]
+        fn exp_4_and_1p5_equal_8() {
+            let expected = 8.0;
+    
+            let a = 4.0;
+            let b = 1.5;
+            let actual = op_exp(a, b);
+    
+            assert_eq!(expected, actual);
+        }
+
+        #[test]
+        fn exp_27_and_0p33_equal_3() {
+            let expected = 3.0;
+    
+            let a = 27.0;
+            let b = 1.0 / 3.0;
+            let actual = op_exp(a, b);
     
             assert_eq!(expected, actual);
         }
