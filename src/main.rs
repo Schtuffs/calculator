@@ -446,17 +446,82 @@ mod tests_unit {
         }
     }
     
+    // Currently commented out to allow for proper test results
     mod bug {
+        // use super::*;
+        
+        // #[test]
+        // fn bug_2_and_1_equal_1() {
+        //     let expected = 1.0;
+    
+        //     let a = 2.0;
+        //     let b = 1.0;
+        //     let actual = op_add(a, b);
+    
+        //     assert_eq!(expected, actual);
+        // }
+    }
+
+    mod format_tokens {
         use super::*;
+
+        #[test]
+        fn format_none_required() {
+            let expected = "1";
+    
+            let input = String::from("1");
+            let actual = format_tokens(&input);
+    
+            assert_eq!(expected, actual);
+        }
         
         #[test]
-        fn bug_2_and_1_equal_1() {
-            let expected = 1.0;
+        fn format_initial_negative() {
+            let expected = "-1";
     
-            let a = 2.0;
-            let b = 1.0;
-            let actual = op_add(a, b);
+            let input = String::from(" -   1");
+            let actual = format_tokens(&input);
     
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn format_3_args() {
+            let expected = "-1 + 2";
+    
+            let input = String::from("-   1 +2");
+            let actual = format_tokens(&input);
+    
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn format_paren() {
+            let expected = "( 1 )";
+    
+            let input = String::from("     (1)   ");
+            let actual = format_tokens(&input);
+    
+            assert_eq!(expected, actual);
+        }
+        
+        #[test]
+        fn format_paren_negative() {
+            let expected = "( -1 )";
+    
+            let input = String::from("     (-1)   ");
+            let actual = format_tokens(&input);
+    
+            assert_eq!(expected, actual);
+        }
+
+        #[test]
+        fn format_long() {
+            let expected = "-1 + 2 * ( -3 - ( -5 ) ) ^ ( 4 )";
+
+            let input = String::from("       -1   +  2*(-   3 -  (-5))^(     4)");
+            let actual = format_tokens(&input);
+
             assert_eq!(expected, actual);
         }
     }
